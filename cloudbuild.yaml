@@ -57,6 +57,21 @@ steps:
     waitFor:
       - push-image
 
+  # 5 — Habilitar acceso público
+  - name: gcr.io/google.com/cloudsdktool/cloud-sdk
+    id: allow-unauthenticated
+    entrypoint: gcloud
+    args:
+      - run
+      - services
+      - add-iam-policy-binding
+      - ${_SERVICE}
+      - --region=${_REGION}
+      - --member=allUsers
+      - --role=roles/run.invoker
+    waitFor:
+      - deploy
+
 images:
   - ${_REGION}-docker.pkg.dev/${PROJECT_ID}/${_REPO}/${_SERVICE}:${SHORT_SHA}
   - ${_REGION}-docker.pkg.dev/${PROJECT_ID}/${_REPO}/${_SERVICE}:latest
