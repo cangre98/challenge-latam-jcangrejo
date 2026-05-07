@@ -2,7 +2,7 @@ substitutions:
   _REGION: us-central1
   _REPO: user-management-api
   _SERVICE: user-management-api
-  _DB_INSTANCE: user-management-db  # Nombre de la instancia Cloud SQL
+  _DB_INSTANCE: user-management-db
 
 steps:
   # 1 — Ejecutar tests antes de construir la imagen
