@@ -1,0 +1,65 @@
+substitutions:
+  _REGION: us-central1
+  _REPO: user-management-api
+  _SERVICE: user-management-api
+  _DB_INSTANCE: user-management-db  # Nombre de la instancia Cloud SQL
+
+steps:
+  # 1 — Ejecutar tests antes de construir la imagen
+  - name: python:3.13-slim
+    id: run-tests
+    entrypoint: bash
+    args:
+      - -c
+      - |
+        pip install -r requirements.txt --quiet
+        pytest tests/ -v
+
+  # 2 — Build de la imagen Docker
+  - name: gcr.io/cloud-builders/docker
+    id: build-image
+    args:
+      - build
+      - -t
+      - ${_REGION}-docker.pkg.dev/${PROJECT_ID}/${_REPO}/${_SERVICE}:${SHORT_SHA}
+      - -t
+      - ${_REGION}-docker.pkg.dev/${PROJECT_ID}/${_REPO}/${_SERVICE}:latest
+      - .
+    waitFor:
+      - run-tests
+
+  # 3 — Push al Artifact Registry
+  - name: gcr.io/cloud-builders/docker
+    id: push-image
+    args:
+      - push
+      - --all-tags
+      - ${_REGION}-docker.pkg.dev/${PROJECT_ID}/${_REPO}/${_SERVICE}
+    waitFor:
+      - build-image
+
+  # 4 — Deploy a Cloud Run
+  - name: gcr.io/google.com/cloudsdktool/cloud-sdk
+    id: deploy
+    entrypoint: gcloud
+    args:
+      - run
+      - deploy
+      - ${_SERVICE}
+      - --image=${_REGION}-docker.pkg.dev/${PROJECT_ID}/${_REPO}/${_SERVICE}:${SHORT_SHA}
+      - --region=${_REGION}
+      - --platform=managed
+      - --allow-unauthenticated
+      - --add-cloudsql-instances=${PROJECT_ID}:${_REGION}:${_DB_INSTANCE}
+      - --set-secrets=DATABASE_URL=DATABASE_URL:latest
+      - --min-instances=0
+      - --max-instances=5
+    waitFor:
+      - push-image
+
+images:
+  - ${_REGION}-docker.pkg.dev/${PROJECT_ID}/${_REPO}/${_SERVICE}:${SHORT_SHA}
+  - ${_REGION}-docker.pkg.dev/${PROJECT_ID}/${_REPO}/${_SERVICE}:latest
+
+options:
+  logging: CLOUD_LOGGING_ONLY
